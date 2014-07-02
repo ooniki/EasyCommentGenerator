@@ -7,21 +7,21 @@ Use is really simple, comment your code as in the following example and run the 
 
 		DocGenerator.py directory extension marker
 			
-	directory : directory of your project.
-	
-	extension : extension of your files.
-	
-	marker : marker that you want to use for comment (usually the comment character).
+	-directory : directory of your project.
+	-extension : extension of your files.
+	-marker : marker that you want to use for comment (usually the comment character).
 	
 	
 Every comment must begin with the selected comment character followed by the type of comment and a colon.
 the type can be written :
+
 	#t:
 	#type:
 	#Type:
 
 	
 Available types are :
+
 	- Variables : #v: or #var: or #Var:
 	- Functions : #f: or #function: or #Function:
 	- Parameters : #p: or #parameter: or #Parameter:
@@ -50,6 +50,7 @@ Different styles for a comment line :
 
 Position of comment :
 	you can position any comments as you want. Just follow the basic rules of programming :
+	
 		- parameters declarations must follow a function or method declaration.
 		- return declarations must follow a function or method declaration.
 		- attributes declarations must follow a class declaration.
