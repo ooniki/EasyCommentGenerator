@@ -1,8 +1,6 @@
 import os
 import sys
 
-global marker
-
 class Type :
 	p = 0
 	m = 1
@@ -302,118 +300,8 @@ class createHTML() :
 		fileHTML.close()
 		
 	
+
 class FileExtractor :
-	@staticmethod
-	def checkStartsWith(line) :
-		global marker
-		if line.startswith(marker + 'c:') or line.startswith(marker + 'comment:') or line.startswith(marker + 'Comment:') :
-			return (2, None)
-		elif line.startswith(marker + 'p:') or line.startswith(marker + 'parameter:') or line.startswith(marker + 'Parameter:') :
-			return (1, Type.p)
-		elif line.startswith(marker + 'm:') or line.startswith(marker + 'method:') or line.startswith(marker + 'method:') :
-			return (1, Type.m)
-		elif line.startswith(marker + 'f:') or line.startswith(marker + 'function:') or line.startswith(marker + 'Function:') :
-			return (1, Type.f)
-		elif line.startswith(marker + 'r:') or line.startswith(marker + 'return:') or line.startswith(marker + 'Return:') :
-			return (1, Type.r)
-		elif line.startswith(marker + 'a:') or line.startswith(marker + 'attribut:') or line.startswith(marker + 'Attribut:') :
-			return (1, Type.a)
-		elif line.startswith(marker + 'v:') or line.startswith(marker + 'var:') or line.startswith(marker + 'Var:') :
-			return (1, Type.v)
-		elif  line.startswith(marker + 'cl:') or line.startswith(marker + 'class:') or line.startswith(marker + 'Class:') :
-			return (1, Type.cl)
-		return (0, None)
-	
-	@staticmethod
-	def buildLast(last, functionOrMethod, classes, functions, vars, nameType, name, comment,  idGen) :
-		if last == Type.p :
-			if functionOrMethod == Type.f :
-				if len(functions) > 0 :
-					functions[len(functions) - 1].appendArgv(Var(nameType, name, comment, idGen.getId()))
-				else :
-					print 'Error: Parameter comment before function comment declaration in ' + file.name + ' line', nbLines
-			elif functionOrMethod == Type.m :
-				if len(classes) > 0 :
-					tmp = classes[len(classes) - 1].getLastMethod()
-					if tmp != None :
-						tmp.appendArgv(Var(nameType, name, comment, idGen.getId()))
-					else :
-						print 'Error: Parameter for method comment before Method comment declaration in ' + file.name + ' line', nbLines
-				else :
-					print 'Error: Parameter for method comment before Class comment declaration in ' + file.name + ' line', nbLines
-		elif  last == Type.m :
-			if len(classes) > 0 :
-				classes[len(classes) - 1].appendMethod(Function(nameType, name, comment, idGen.getId()))
-			else :
-				print 'Error: Method comment before Class comment declaration in ' + file.name + ' line', nbLines
-		elif  last == Type.f :
-			functions.append(Function(nameType, name, comment, idGen.getId()))
-		elif  last == Type.r :
-			if functionOrMethod == Type.f :
-				if len(functions) > 0 :
-					functions[len(functions) - 1].appendReturn(Var(nameType, name, comment, idGen.getId()))
-				else :
-					print 'Error: Return comment before function comment declaration in ' + file.name + ' line', nbLines
-			elif functionOrMethod == Type.m :
-				if len(classes) > 0 :
-					tmp = classes[len(classes) - 1].getLastMethod()
-					if tmp != None :
-						tmp.appendReturn(Var(nameType, name, comment, idGen.getId()))
-					else :
-						print 'Error: Return for method comment before Method comment declaration in ' + file.name + ' line', nbLines
-				else :
-					print 'Error: Return for method comment before Class comment declaration in ' + file.name + ' line', nbLines
-		elif  last == Type.a :
-			if len(classes) > 0 :
-				classes[len(classes) - 1].appendAttribut(Var(nameType, name, comment, idGen.getId()))
-			else :
-				print 'Error: Attribut comment before Class comment declaration in ' + file.name + ' line', nbLines
-		elif  last == Type.v :
-			vars.append(Var(nameType, name, comment, idGen.getId()))
-		elif  last == Type.cl :
-			classes.append(Class(name, comment))
-	
-	@staticmethod
-	def buildTypeNameAndComment(line, file, nbLines) :
-		line = line.replace('\n','')
-		nameType = None
-		name = None
-		comment = None
-		
-		lineSplited = line.split(':')
-		lineSplited[1] = lineSplited[1].split()
-		if len(lineSplited[1])  > 2 :
-			print 'Error: Name bad format ' + file.name + ' line', nbLines
-		if len(lineSplited[1])  >= 2 :
-			nameType = lineSplited[1][0]
-			name = lineSplited[1][1]
-		else :
-			name = lineSplited[1][0]
-		lineSplitedLen = len(lineSplited) 
-		if lineSplitedLen > 2 :
-			i = 2
-			comment = ''
-			while i < lineSplitedLen :
-				comment = comment +  lineSplited[i]
-				i += 1
-				if i < lineSplitedLen :
-					comment = comment + ':'
-			while comment[0] == ' ' :
-				comment = comment[1:] 
-		return (nameType, name,  comment) 
-		
-	@staticmethod
-	def buildOnlyComment(line, comment) :
-		line = line.replace('\n','')
-		line = line[3:] 
-		while line[0] == ' ' :
-				line = line[1:] 
-		if comment == None :
-			comment = line
-		else :
-			comment = comment + ' ' + line
-		return comment
-	
 	@staticmethod
 	def extract(file, idGen) :
 		vars = []
@@ -426,7 +314,8 @@ class FileExtractor :
 		comment = None
 		fileStream = open(file.path, 'r')
 		
-		commentOrNotComment = 0
+		commentActive = False
+		noCommentActive = False
 		functionOrMethod = 0
 		last = None
 		current = None
@@ -434,22 +323,226 @@ class FileExtractor :
 		for line in fileStream :
 			nbLines += 1
 			line = line.replace('\t','')
-			commentOrNotComment, current = FileExtractor.checkStartsWith(line)
-			if current == Type.m :
+			if line.startswith('#c:') or line.startswith('#comment:') or line.startswith('#Comment:') :
+				commentActive = True
+				noCommentActive = False
+			elif line.startswith('#p:') or line.startswith('#parameter:') or line.startswith('#Parameter:') :
+				commentActive = False
+				noCommentActive = True
+				current = Type.p
+			elif line.startswith('#m:') or line.startswith('#method:') or line.startswith('#method:') :
+				commentActive = False
+				noCommentActive = True
+				current = Type.m
 				functionOrMethod = Type.m
-			if current == Type.f :
-				functionOrMethod = Type.f				
+			elif line.startswith('#f:') or line.startswith('#function:') or line.startswith('#Function:') :
+				commentActive = False
+				noCommentActive = True
+				current = Type.f
+				functionOrMethod = Type.f
+			elif line.startswith('#r:') or line.startswith('#return:') or line.startswith('#Return:') :
+				commentActive = False
+				noCommentActive = True
+				current = Type.r
+			elif line.startswith('#a:') or line.startswith('#attribut:') or line.startswith('#Attribut:') :
+				commentActive = False
+				noCommentActive = True
+				current = Type.a
+			elif line.startswith('#v:') or line.startswith('#var:') or line.startswith('#Var:') :
+				commentActive = False
+				noCommentActive = True
+				current = Type.v
+			elif  line.startswith('#cl:') or line.startswith('#class:') or line.startswith('#Class:') :
+				commentActive = False
+				noCommentActive = True
+				current = Type.cl
+				
 			
-			if commentOrNotComment == 1 :
-				FileExtractor.buildLast(last, functionOrMethod, classes, functions, vars, nameType, name, comment,  idGen)
+			if noCommentActive :
+				# print name
+				# print comment
+				if last == Type.p :
+					# print 'ParameterActive',
+					if functionOrMethod == Type.f :
+						# print 'for function'
+						if len(functions) > 0 :
+							functions[len(functions) - 1].appendArgv(Var(nameType, name, comment, idGen.getId()))
+						else :
+							print 'Error: Parameter comment before function comment declaration in ' + file.name + ' line', nbLines
+					elif functionOrMethod == Type.m :
+						# print 'for method test'
+						if len(classes) > 0 :
+							tmp = classes[len(classes) - 1].getLastMethod()
+							if tmp != None :
+								tmp.appendArgv(Var(nameType, name, comment, idGen.getId()))
+							else :
+								print 'Error: Parameter for method comment before Method comment declaration in ' + file.name + ' line', nbLines
+						else :
+							print 'Error: Parameter for method comment before Class comment declaration in ' + file.name + ' line', nbLines
+					# print 'Name:', name
+					# print 'Comment:', comment
+				elif  last == Type.m :
+					# print 'MethodActive'
+					# print 'Name:', name
+					# print 'Comment:', comment
+					if len(classes) > 0 :
+						classes[len(classes) - 1].appendMethod(Function(nameType, name, comment, idGen.getId()))
+					else :
+						print 'Error: Method comment before Class comment declaration in ' + file.name + ' line', nbLines
+				elif  last == Type.f :
+					print 'FunctionActive'
+					print 'Name:', name
+					print 'Comment:', comment
+					functions.append(Function(nameType, name, comment, idGen.getId()))
+				elif  last == Type.r :
+					# print 'ReturnActive',
+					if functionOrMethod == Type.f :
+						# print 'for function'
+						if len(functions) > 0 :
+							functions[len(functions) - 1].appendReturn(Var(nameType, name, comment, idGen.getId()))
+						else :
+							print 'Error: Return comment before function comment declaration in ' + file.name + ' line', nbLines
+					elif functionOrMethod == Type.m :
+						# print 'for method'
+						if len(classes) > 0 :
+							tmp = classes[len(classes) - 1].getLastMethod()
+							if tmp != None :
+								tmp.appendReturn(Var(nameType, name, comment, idGen.getId()))
+							else :
+								print 'Error: Return for method comment before Method comment declaration in ' + file.name + ' line', nbLines
+						else :
+							print 'Error: Return for method comment before Class comment declaration in ' + file.name + ' line', nbLines
+					# print 'Name:', name
+					# print 'Comment:', comment
+				elif  last == Type.a :
+					# print 'AttributActive'
+					# print 'Name:', name
+					# print 'Comment:', comment
+					if len(classes) > 0 :
+						classes[len(classes) - 1].appendAttribut(Var(nameType, name, comment, idGen.getId()))
+					else :
+						print 'Error: Attribut comment before Class comment declaration in ' + file.name + ' line', nbLines
+				elif  last == Type.v :
+					# print 'VarActive'
+					# print 'Name:', name
+					# print 'Comment:', comment
+					vars.append(Var(nameType, name, comment, idGen.getId()))
+				elif  last == Type.cl :
+					# print 'ClassActive'
+					# print 'Name:', name
+					# print 'Comment:', comment
+					classes.append(Class(name, comment))
 				last = current
-				nameType, name, comment = FileExtractor.buildTypeNameAndComment(line, file, nbLines) 
-			elif commentOrNotComment == 2 :
-				comment = FileExtractor.buildOnlyComment(line, comment)
-					
-			commentOrNotComment = 0
+				
+				line = line.replace('\n','')
+				nameType = None
+				name = None
+				comment = None
+				
+				lineSplited = line.split(':')
+				lineSplited[1] = lineSplited[1].split()
+				if len(lineSplited[1])  > 2 :
+					print 'Error: Name bad format ' + file.name + ' line', nbLines
+				if len(lineSplited[1])  >= 2 :
+					nameType = lineSplited[1][0]
+					name = lineSplited[1][1]
+				else :
+					name = lineSplited[1][0]
+				lineSplitedLen = len(lineSplited) 
+				if lineSplitedLen > 2 :
+					i = 2
+					comment = ''
+					while i < lineSplitedLen :
+						comment = comment +  lineSplited[i]
+						i += 1
+						if i < lineSplitedLen :
+							comment = comment + ':'
+					while comment[0] == ' ' :
+						comment = comment[1:] 
+				noCommentActive = False
+				
+			elif commentActive :
+				line = line.replace('\n','')
+				line = line[3:] 
+				while line[0] == ' ' :
+						line = line[1:] 
+				if comment == None :
+					comment = line
+				else :
+					comment = comment + ' ' + line
+				commentActive = False
 		
-		FileExtractor.buildLast(last, functionOrMethod, classes, functions, vars, nameType, name, comment,  idGen)
+		if last == Type.p :
+			# print 'ParameterActive',
+			if functionOrMethod == Type.f :
+				# print 'for function'
+				if len(functions) > 0 :
+					functions[len(functions) - 1].appendArgv(Var(nameType, name, comment, idGen.getId()))
+				else :
+					print 'Error: Parameter comment before function comment declaration in ' + file.name + ' line', nbLines
+			elif functionOrMethod == Type.m :
+				# print 'for method test'
+				if len(classes) > 0 :
+					tmp = classes[len(classes) - 1].getLastMethod()
+					if tmp != None :
+						tmp.appendArgv(Var(nameType, name, comment, idGen.getId()))
+					else :
+						print 'Error: Parameter for method comment before Method comment declaration in ' + file.name + ' line', nbLines
+				else :
+					print 'Error: Parameter for method comment before Class comment declaration in ' + file.name + ' line', nbLines
+			# print 'Name:', name
+			# print 'Comment:', comment
+		elif  last == Type.m :
+			# print 'MethodActive'
+			# print 'Name:', name
+			# print 'Comment:', comment
+			if len(classes) > 0 :
+				classes[len(classes) - 1].appendMethod(Function(nameType, name, comment, idGen.getId()))
+			else :
+				print 'Error: Method comment before Class comment declaration in ' + file.name + ' line', nbLines
+		elif  last == Type.f :
+			# print 'FunctionActive'
+			# print 'Name:', name
+			# print 'Comment:', comment
+			functions.append(Function(nameType, name, comment, idGen.getId()))
+		elif  last == Type.r :
+			# print 'ReturnActive',
+			if functionOrMethod == Type.f :
+				# print 'for function'
+				if len(functions) > 0 :
+					functions[len(functions) - 1].appendReturn(Var(nameType, name, comment, idGen.getId()))
+				else :
+					print 'Error: Return comment before function comment declaration in ' + file.name + ' line', nbLines
+			elif functionOrMethod == Type.m :
+				# print 'for method'
+				if len(classes) > 0 :
+					tmp = classes[len(classes) - 1].getLastMethod()
+					if tmp != None :
+						tmp.appendReturn(Var(nameType, name, comment, idGen.getId()))
+					else :
+						print 'Error: Return for method comment before Method comment declaration in ' + file.name + ' line', nbLines
+				else :
+					print 'Error: Return for method comment before Class comment declaration in ' + file.name + ' line', nbLines
+			# print 'Name:', name
+			# print 'Comment:', comment
+		elif  last == Type.a :
+			# print 'AttributActive'
+			# print 'Name:', name
+			# print 'Comment:', comment
+			if len(classes) > 0 :
+				classes[len(classes) - 1].appendAttribut(Var(nameType, name, comment, idGen.getId()))
+			else :
+				print 'Error: Attribut comment before Class comment declaration in ' + file.name + ' line', nbLines
+		elif  last == Type.v :
+			# print 'VarActive'
+			# print 'Name:', name
+			# print 'Comment:', comment
+			vars.append(Var(nameType, name, comment, idGen.getId()))
+		elif  last == Type.cl :
+			# print 'ClassActive'
+			# print 'Name:', name
+			# print 'Comment:', comment
+			classes.append(Class(name, comment))
 			
 		return vars, functions, classes
 
@@ -523,11 +616,9 @@ class Directory :
 		self.directories.append(dir)
 
 class DocGenerator :
-	def __init__ (self, dir, extension) :
+	def __init__ (self, dir) :
 		self.dir = dir
-		if not extension.startswith('.')  :
-			extension = '.' + extension
-		self.extension = extension
+		self.extension = ('.py')
 	
 	def compute(self) :
 		idGen = IdGenerator()
@@ -540,22 +631,22 @@ class DocGenerator :
 		fileList = os.listdir(dir.path)
 		for file in fileList :
 			if os.path.isdir(os.path.join(dir.path, file)) :
+				# print 'Directory :', file
 				tmp = Directory(file, dir.path + '/' + file)
 				dir.appendDir(tmp)
 				self.browser(tmp, idGen)
 			else :
+				# print 'File :', file
 				if file.endswith(self.extension) :
 					dir.appendFile(File(file, dir.path + '/' + file, idGen))
 
 def main () :
-	global marker
-	if len(sys.argv) == 4 :
-		marker = sys.argv[3]
-		gen = DocGenerator(Directory(sys.argv[1], sys.argv[1]), sys.argv[2])
+	if len(sys.argv) == 2 :
+		gen = DocGenerator(Directory(sys.argv[1], sys.argv[1]))
 		gen.compute()
 	else :
 		print 'Error : Bad Input'
-		print 'DocGenerator.py directory extension marker'
+		print 'DocGenerator.py directory'
 		
 if __name__ == "__main__":
 	main()		
