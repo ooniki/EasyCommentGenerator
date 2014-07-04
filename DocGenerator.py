@@ -3,8 +3,12 @@
 import os
 import sys
 import argparse
+import logging
+from logging.handlers import RotatingFileHandler
 
 global marker
+global idGen
+global logger
 
 class Type :
 	p = 0
@@ -117,12 +121,9 @@ class createHTML() :
 
 	@staticmethod
 	def createMenuRecurse(fileHTML, dir) :
-		print 'From :', dir.name
 		for file in dir.files :
-			print file.name
 			createHTML.createMenuFile(fileHTML, file)
 		for subDir in dir.directories :
-			print subDir.name
 			createHTML.createMenuDir(fileHTML, subDir)
 
 	@staticmethod
@@ -279,12 +280,9 @@ class createHTML() :
 
 	@staticmethod
 	def createContentRecurse(fileHTML, dir) :
-		print 'From :', dir.name
 		for file in dir.files :
-			print file.name
 			createHTML.createContentFile(fileHTML, file)
 		for subDir in dir.directories :
-			print subDir.name
 			createHTML.createContentDir(fileHTML, subDir)
 
 	@staticmethod
@@ -328,27 +326,28 @@ class FileExtractor :
 		return (0, None)
 
 	@staticmethod
-	def buildLast(last, functionOrMethod, classes, functions, vars, nameType, name, comment,  idGen) :
+	def buildLast(last, functionOrMethod, classes, functions, vars, nameType, name, comment) :
+		global idGen
 		if last == Type.p :
 			if functionOrMethod == Type.f :
 				if len(functions) > 0 :
 					functions[len(functions) - 1].appendArgv(Var(nameType, name, comment, idGen.getId()))
 				else :
-					print 'Error: Parameter comment before function comment declaration in ' + file.name + ' line', nbLines
+					logger.error('Parameter comment before function comment declaration in ' + file.name + ' line ' + str(nbLines))
 			elif functionOrMethod == Type.m :
 				if len(classes) > 0 :
 					tmp = classes[len(classes) - 1].getLastMethod()
 					if tmp != None :
 						tmp.appendArgv(Var(nameType, name, comment, idGen.getId()))
 					else :
-						print 'Error: Parameter for method comment before Method comment declaration in ' + file.name + ' line', nbLines
+						logger.error('Parameter for method comment before Method comment declaration in ' + file.name + ' line ' + str(nbLines))
 				else :
-					print 'Error: Parameter for method comment before Class comment declaration in ' + file.name + ' line', nbLines
+					logger.error('Parameter for method comment before Class comment declaration in ' + file.name + ' line ' + str(nbLines))
 		elif  last == Type.m :
 			if len(classes) > 0 :
 				classes[len(classes) - 1].appendMethod(Function(nameType, name, comment, idGen.getId()))
 			else :
-				print 'Error: Method comment before Class comment declaration in ' + file.name + ' line', nbLines
+				logger.error('Method comment before Class comment declaration in ' + file.name + ' line ' + str(nbLines))
 		elif  last == Type.f :
 			functions.append(Function(nameType, name, comment, idGen.getId()))
 		elif  last == Type.r :
@@ -356,21 +355,21 @@ class FileExtractor :
 				if len(functions) > 0 :
 					functions[len(functions) - 1].appendReturn(Var(nameType, name, comment, idGen.getId()))
 				else :
-					print 'Error: Return comment before function comment declaration in ' + file.name + ' line', nbLines
+					logger.error('Return comment before function comment declaration in ' + file.name + ' line ' + str(nbLines))
 			elif functionOrMethod == Type.m :
 				if len(classes) > 0 :
 					tmp = classes[len(classes) - 1].getLastMethod()
 					if tmp != None :
 						tmp.appendReturn(Var(nameType, name, comment, idGen.getId()))
 					else :
-						print 'Error: Return for method comment before Method comment declaration in ' + file.name + ' line', nbLines
+						logger.error('Return for method comment before Method comment declaration in ' + file.name + ' line ' + str(nbLines))
 				else :
-					print 'Error: Return for method comment before Class comment declaration in ' + file.name + ' line', nbLines
+					logger.error('Return for method comment before Class comment declaration in ' + file.name + ' line ' + str(nbLines))
 		elif  last == Type.a :
 			if len(classes) > 0 :
 				classes[len(classes) - 1].appendAttribut(Var(nameType, name, comment, idGen.getId()))
 			else :
-				print 'Error: Attribut comment before Class comment declaration in ' + file.name + ' line', nbLines
+				logger.error('Attribut comment before Class comment declaration in ' + file.name + ' line ' + str(nbLines))
 		elif  last == Type.v :
 			vars.append(Var(nameType, name, comment, idGen.getId()))
 		elif  last == Type.cl :
@@ -386,7 +385,7 @@ class FileExtractor :
 		lineSplited = line.split(':')
 		lineSplited[1] = lineSplited[1].split()
 		if len(lineSplited[1])  > 2 :
-			print 'Error: Name bad format ' + file.name + ' line', nbLines
+			logger.error('Name bad format ' + file.name + ' line ' + str(nbLines))
 		if len(lineSplited[1])  >= 2 :
 			nameType = lineSplited[1][0]
 			name = lineSplited[1][1]
@@ -418,7 +417,7 @@ class FileExtractor :
 		return comment
 
 	@staticmethod
-	def extract(file, idGen) :
+	def extract(file) :
 		vars = []
 		functions = []
 		classes = []
@@ -444,7 +443,7 @@ class FileExtractor :
 				functionOrMethod = Type.f
 
 			if commentOrNotComment == 1 :
-				FileExtractor.buildLast(last, functionOrMethod, classes, functions, vars, nameType, name, comment,  idGen)
+				FileExtractor.buildLast(last, functionOrMethod, classes, functions, vars, nameType, name, comment)
 				last = current
 				nameType, name, comment = FileExtractor.buildTypeNameAndComment(line, file, nbLines)
 			elif commentOrNotComment == 2 :
@@ -452,7 +451,7 @@ class FileExtractor :
 
 			commentOrNotComment = 0
 
-		FileExtractor.buildLast(last, functionOrMethod, classes, functions, vars, nameType, name, comment,  idGen)
+		FileExtractor.buildLast(last, functionOrMethod, classes, functions, vars, nameType, name, comment,)
 
 		return vars, functions, classes
 
@@ -507,10 +506,10 @@ class Class :
 			return None
 
 class File :
-	def __init__ (self, name, path, idGen) :
+	def __init__ (self, name, path) :
 		self.name = name
 		self.path = path
-		self.vars, self.functions, self.classes = FileExtractor.extract(self, idGen)
+		self.vars, self.functions, self.classes = FileExtractor.extract(self)
 
 class Directory :
 	def __init__ (self, name, path) :
@@ -533,43 +532,82 @@ class DocGenerator :
 		self.extension = extension
 
 	def compute(self) :
-		idGen = IdGenerator()
-		print 'Documentation generated from', self.dir.name
-		self.browser(self.dir, idGen)
+		logger.info('Documentation generated from' + self.dir.name)
+		self.browser(self.dir)
 		createHTML.create(self.dir)
 
 
-	def browser (self, dir, idGen) :
+	def browser(self, dir) :
+		global logger
 		fileList = os.listdir(dir.path)
+		logger.info('From : ' + dir.path)
 		for file in fileList :
+			logger.info('  ' + file)
+			if  file.startswith('.') :
+				continue
 			if os.path.isdir(os.path.join(dir.path, file)) :
 				tmp = Directory(file, dir.path + '/' + file)
 				dir.appendDir(tmp)
-				self.browser(tmp, idGen)
+				self.browser(tmp)
 			else :
 				if file.endswith(self.extension) :
-					dir.appendFile(File(file, dir.path + '/' + file, idGen))
+					dir.appendFile(File(file, dir.path + '/' + file))
 
 
+def initLogging(vervoseLevel, outputfile) :
+	global logger
+
+	if vervoseLevel == 'DEBUG' :
+		level = logging.DEBUG
+	elif vervoseLevel == 'INFO' :
+		level = logging.INFO
+	elif vervoseLevel == 'WARNING' :
+		level = logging.WARNING
+	elif vervoseLevel == 'ERROR' :
+		level = logging.ERROR
+		
+	logger = logging.getLogger()
+	logger.setLevel(level)
+	formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
+	
+	if outputfile != 'None' :
+		file_handler = RotatingFileHandler(outputfile, 'a', 1000000, 1)
+		file_handler.setLevel(logging.DEBUG)
+		file_handler.setFormatter(formatter)
+		logger.addHandler(file_handler) 
+
+	steam_handler = logging.StreamHandler()
+	steam_handler.setFormatter(formatter)
+	steam_handler.setLevel(logging.DEBUG)
+	logger.addHandler(steam_handler)				
+					
 def parse_args():
-	parser = argparse.ArgumentParser(description="Generate documentation from \
-a very and easy-to-use syntax.", prog="DocGenerator.py")
+	parser = argparse.ArgumentParser(description='''Generate documentation from
+						a very and easy-to-use syntax.''', prog="DocGenerator.py")
 	parser.add_argument('-m', '--marker', action="store",
-						help="Specify the comment marker to use. This depends \
-on the language your are using. Default is defined for python.", default="#")
+						help='''Specify the comment marker to use. This depends 
+						on the language your are using. Default is defined for python.''', default="#")
 	parser.add_argument('-d', '--directory', action="store",
-						help="Specify the directory from which the source \
-files will be retrieved to parse documentation. Default is the current \
-working directory.", default=".")
+						help='''Specify the directory from which the source
+						files will be retrieved to parse documentation. Default is the current
+						working directory.''', default=".")
 	parser.add_argument('-e', '--extension', action="store",
-						help="Specify the extension of your files. Default \
-is `py`.",
+						help='''Specify the extension of your files. Default is `py`.''',
 						default="py")
+	parser.add_argument('-v', '--verbose', action="store",
+						help='''Specify the verbose level.
+						Possible verbose level are : DEBUG, INFO, WARNING, ERROR.
+						''', default="ERROR")
+	parser.add_argument('-l', '--log', action="store",
+						help='''Active and Specify the output file for log.	''', default="None")
 	return parser.parse_args()
 
 def main () :
 	global marker
+	global idGen
+	idGen = IdGenerator()
 	ns = parse_args()
+	initLogging(ns.verbose, ns.log)
 	marker = ns.marker
 	gen = DocGenerator(Directory(ns.directory, ns.directory), ns.extension)
 	gen.compute()

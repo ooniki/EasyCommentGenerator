@@ -22,6 +22,11 @@ optional arguments:
                         current working directory.
   -e EXTENSION, --extension EXTENSION
                         Specify the extension of your files. Default is `py`.
+  -v VERBOSE, --verbose VERBOSE
+                        Specify the verbose level. Possible verbose level are :
+						DEBUG, INFO, WARNING, ERROR.
+  -l LOG, --log LOG
+                        Active and specify the output file for log.
 
 ```
 
